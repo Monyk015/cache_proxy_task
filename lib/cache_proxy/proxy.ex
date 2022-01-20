@@ -4,27 +4,27 @@ defmodule CacheProxy.Proxy do
 
   @successful_responses [200, 201, 202, 203, 204, 205, 206]
 
+  defp get_and_insert(url, default \\ nil) do
+    case Proxy.http_request(url) do
+      {:ok, res} ->
+        Cache.insert(url, res)
+        {:ok, res}
+
+      {:error, _error} when default == nil ->
+        {:ok, default}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
   def get(url) do
     case Cache.get(url) do
       :not_found ->
-        case Proxy.http_request(url) do
-          {:ok, res} ->
-            Cache.insert(url, res)
-            {:ok, res}
-
-          {:error, error} ->
-            {:error, error}
-        end
+        get_and_insert(url)
 
       {:ok, :stale, result} ->
-        case Proxy.http_request(url) do
-          {:ok, res} ->
-            :ok = Cache.insert(url, res)
-            {:ok, res}
-
-          {:error, _error} ->
-            {:ok, result}
-        end
+        get_and_insert(url, result)
 
       {:ok, :fresh, result} ->
         {:ok, result}
